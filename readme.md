@@ -1,8 +1,10 @@
 # Functional Programming Jargon
 
-The goal of this document is to define jargon from functional programming in plain english with examples.
+Functional programming (FP) provides a lot of advantages and its popularity has been increasing as a result.  However each programming paradigm comes with its own unique jargon and FP is no exception.  By providing a glossary we hope to make learning FP easier.
 
-*This is a WIP; please feel free to send a PR ;)*
+JavaScript is popular language that is well suited to FP; especially with revision ES2015.  Therefore we have chosen to use JavaScript (ES2015) for our examples, and in some cases definitions.  This should make this glossary as accessible and as possible and introduce features from the new revision.
+
+*This is a [WIP](https://github.com/hemanth/functional-programming-jargon/issues/20); please feel free to send a PR ;)*
 
 Where applicable, this document uses terms defined in the [Fantasy Land spec](https://github.com/fantasyland/fantasy-land)
 
@@ -17,6 +19,7 @@ Where applicable, this document uses terms defined in the [Fantasy Land spec](ht
 * [Side effects](#side-effects)
 * [Idempotent](#idempotent)
 * [Point-Free Style](#point-free-style)
+* [Predicate](#predicate)
 * [Contracts](#contracts)
 * [Guarded Functions](#guarded-functions)
 * [Categories](#categories)
@@ -85,18 +88,34 @@ filter(is(Number), [0, '1', 2, null]); // [0, 2]
 
 ## Partial Application
 
-The process of getting a function with lesser arity compared to the original
-function by fixing the number of arguments is known as partial application.
+Partially applying a function means creating a new function by pre-filling some of the arguments to the original function.
+
 
 ```js
-let sum = (a, b) => a + b;
+// Helper to create partially applied functions
+// Takes a function and some arguments
+const partial = (f, ...args) =>
+    // returns a function that takes the rest of the arguments
+    (...moreArgs) =>
+        // and calls the original function with all of them
+        f(...[...args, ...moreArgs]);
 
-// partially applying `a` to `40`
-let partial = sum.bind(null, 40);
+// Something to apply
+const add3 = (a, b, c) => a + b + c;
 
-// Invoking it with `b`
-partial(2); // 42
+// Partially applying `2` and `3` to `add3` gives you a one-argument function
+const fivePlus = partial(add3, 2, 3); // (c) => 2 + 3 + c
+
+fivePlus(4); // 9
 ```
+
+You can also use `Function.prototype.bind` to partially apply a function in JS:
+
+```js
+const add1More = add3.bind(null, 2, 3); // (c) => 2 + 3 + c
+```
+
+Partial application helps create simpler functions from more complex ones by baking in data when you have it. [Curried](#currying) functions are automatically partially applied.
 
 ## Currying
 
@@ -119,7 +138,7 @@ add2(10) // 12
 
 ## Function Composition
 
-The act of putting two functions together to form a third function where the the output of one function is the input of the other.
+The act of putting two functions together to form a third function where the output of one function is the input of the other.
 
 ```js
 const compose = (f, g) => (a) => f(g(a)) // Definition
@@ -133,7 +152,7 @@ A function is pure if the return value is only determined by its
 input values, and does not produce side effects.
 
 ```js
-let greet = (name) => "Hi, " + name ;
+const greet = (name) => "Hi, " + name ;
 
 greet("Brianne") // "Hi, Brianne"
 
@@ -143,9 +162,9 @@ As opposed to:
 
 ```js
 
-let greeting;
+const greeting;
 
-let greet = () => greeting = "Hi, " + window.name;
+const greet = () => greeting = "Hi, " + window.name;
 
 greet(); // "Hi, Brianne"
 
@@ -153,7 +172,11 @@ greet(); // "Hi, Brianne"
 
 ## Side effects
 
-A function or expression is said to have a side effect if apart from returning a value, it modifies some state or has an observable interaction with external functions.
+A function or expression is said to have a side effect if apart from returning a value, it interacts with (reads from or writes to) external mutable state.
+
+```js
+const differentEveryTime = new Date();
+```
 
 ```js
 console.log("IO is a side effect!");
@@ -181,23 +204,30 @@ Writing functions where the definition does not explicitly identify the argument
 
 ```js
 // Given
-let map = (fn) => (list) => list.map(fn);
-let add = (a) => (b) => a + b;
+const map = (fn) => (list) => list.map(fn);
+const add = (a) => (b) => a + b;
 
 // Then
 
 // Not points-free - `numbers` is an explicit argument
-let incrementAll = (numbers) => map(add(1))(numbers);
+const incrementAll = (numbers) => map(add(1))(numbers);
 
 // Points-free - The list is an implicit argument
-let incrementAll2 = map(add(1));
+const incrementAll2 = map(add(1));
 ```
 
 `incrementAll` identifies and uses the parameter `numbers`, so it is not points-free.  `incrementAll2` is written just by combining functions and values, making no mention of its arguments.  It __is__ points-free.
 
 Points-free function definitions look just like normal assignments without `function` or `=>`.
 
+## Predicate
+A predicate is a function that returns true or false for a given value. A common use of a predicate is as the callback for array filter.
 
+```js
+const predicate = (a) => a > 2;
+
+[1, 2, 3, 4].filter(predicate); // [3, 4]
+```
 
 ## Contracts
 
@@ -242,70 +272,71 @@ john.age + five === ({name: 'John', age: 30}).age + (5)
 
 ## Functor
 
-An object with a `map` function that adheres to certain rules. `Map` runs a function on values in an object and returns a new object.
-
-A common functor in javascript is `Array`
+An object that implements a `map` function which, while running over each value in the object to produce a new object, adheres to two rules:
 
 ```js
-[2, 3, 4].map((n) => n * 2); // [4, 6, 8]
-```
-
-If `func` is an object implementing a `map` function, and `f`, `g` be arbitrary functions, then `func` is said to be a functor if the map function adheres to the following rules:
-
-```js
-// identity
-func.map((x) => x) === func
+// preserves identity
+object.map(x => x) === object
 ```
 
 and
 
 ```js
-// composition
-func.map((x) => f(g(x))) === func.map(g).map(f)
+// composable
+object.map(x => f(g(x))) === object.map(g).map(f)
 ```
 
-We can now see that `Array` is a functor because it adheres to the functor rules.
+(`f`, `g` be arbitrary functions)
+
+A common functor in JavaScript is `Array` since it abides to the two functor rules:
 
 ```js
-[1, 2, 3].map((x) => x); // = [1, 2, 3]
+[1, 2, 3].map(x => x); // = [1, 2, 3]
 ```
 
 and
 
 ```js
-let f = (x) => x + 1;
-let g = (x) => x * 2;
+const f = x => x + 1;
+const g = x => x * 2;
 
-[1, 2, 3].map((x) => f(g(x))); // = [3, 5, 7]
+[1, 2, 3].map(x => f(g(x))); // = [3, 5, 7]
 [1, 2, 3].map(g).map(f);     // = [3, 5, 7]
 ```
 
 ## Pointed Functor
-A functor with an `of` function that puts _any_ single value into that functor.
+An object with an `of` function that puts _any_ single value into it.
 
-Array Implementation:
+ES2015 adds `Array.of` making arrays a pointed functor.
 
 ```js
-Array.prototype.of = (v) => [v];
-
-[].of(1) // [1]
+Array.of(1) // [1]
 ```
 
 ## Lift
 
-Lift is like `map` except it can be applied to multiple functors.
+Lifting is when you take a value and put it into an object like a [functor](#pointed-functor). If you lift a function into an [Applicative Functor](#applicative-functor) then you can make it work on values that are also in that functor.
 
-Map is the same as a lift over a one-argument function:
-
-```js
-lift((n) => n * 2)([2, 3, 4]); // [4, 6, 8]
-```
-
-Unlike map lift can be used to combine values from multiple arrays:
+Some implementations have a function called `lift`, or `liftA2` to make it easier to run functions on functors.
 
 ```js
-lift((a, b) => a * b)([1, 2], [3]); // [3, 6]
+const mult = (a, b) => a * b;
+
+const liftedMult = lift(mult); // this function now works on functors like array
+
+liftedMult([1, 2], [3]); // [3, 6]
+lift((a, b) => a + b)([1, 2], [3, 4]); // [4, 5, 5, 6]
 ```
+
+Lifting a one-argument function and applying it does the same thing as `map`.
+
+```js
+const increment = (x) => x + 1;
+
+lift(increment)([2]); // [3]
+[2].map(increment); // [3]
+```
+
 
 ## Referential Transparency
 
@@ -315,7 +346,7 @@ behavior of the program is said to be referentially transparent.
 Say we have function greet:
 
 ```js
-let greet = () => "Hello World!";
+const greet = () => "Hello World!";
 ```
 
 Any invocation of `greet()` can be replaced with `Hello World!` hence greet is
@@ -330,7 +361,7 @@ When an application is composed of expressions and devoid of side effects, truth
 Lazy evaluation is a call-by-need evaluation mechanism that delays the evaluation of an expression until its value is needed. In functional languages, this allows for structures like infinite lists, which would not normally be available in an imperative language where the sequencing of commands is significant.
 
 ```js
-let rand = function*() {
+const rand = function*() {
     while (1 < 2) {
         yield Math.random();
     }
@@ -338,35 +369,35 @@ let rand = function*() {
 ```
 
 ```js
-let randIter = rand();
+const randIter = rand();
 randIter.next(); // Each execution gives a random value, expression is evaluated on need.
 ```
 
 ## Monoid
 
-A monoid is some data type and a two parameter function that "combines" two values of the type, where an identity value that does not affect the result of the function also exists.
+An object with a function that "combines" that object with another of the same type.
 
-One very simple monoid is numbers and addition:
+One simple monoid is the addition of numbers:
 
 ```js
 1 + 1; // 2
 ```
+In this case number is the object and `+` is the function.
 
-The data type is number and the function is `+`, the addition of two numbers.
+An "identity" value must also exist that when combined with a value doesn't change it.
 
+The identity value for addition is `0`.
 ```js
 1 + 0; // 1
 ```
 
-The identity value is `0` - adding `0` to any number will not change it.
-
-For something to be a monoid, it's also required that the grouping of operations will not affect the result:
+It's also required that the grouping of operations will not affect the result (associativity):
 
 ```js
 1 + (2 + 3) === (1 + 2) + 3; // true
 ```
 
-Array concatenation can also be said to be a monoid:
+Array concatenation also forms a monoid:
 
 ```js
 [1, 2].concat([3, 4]); // [1, 2, 3, 4]
@@ -381,8 +412,8 @@ The identity value is empty array `[]`
 If identity and compose functions are provided, functions themselves form a monoid:
 
 ```js
-var identity = (a) => a;
-var compose = (f, g) => (x) => f(g(x));
+const identity = (a) => a;
+const compose = (f, g) => (x) => f(g(x));
 
 compose(foo, identity) ≍ compose(identity, foo) ≍ foo
 ```
@@ -433,6 +464,24 @@ An applicative functor is an object with an `ap` function. `ap` applies a functi
 [(a) => a + 1].ap([1]) // [2]
 ```
 
+This is useful if you have multiple applicative functors and you want to apply a function that takes multiple arguments to them.
+
+```js
+const arg1 = [1, 2];
+const arg2 = [3, 4];
+
+// function needs to be curried for this to work
+const add = (x) => (y) => x + y;
+
+const partiallyAppliedAdds = [add].ap(arg1); // [(y) => 1 + y, (y) => 2 + y]
+```
+
+This gives you an array of functions that you can call `ap` on to get the result:
+
+```js
+partiallyAppliedAdds.ap(arg2); // [3, 4, 5, 6]
+```
+
 ## Morphism
 
 A transformation function.
@@ -464,12 +513,12 @@ Make array a setoid:
 
 ```js
 Array.prototype.equals = (arr) => {
-    var len = this.length
-    if (len != arr.length) {
+    const len = this.length
+    if (len !== arr.length) {
         return false
     }
-    for (var i = 0; i < len; i++) {
-        if (this[i] !=== arr[i]) {
+    for (let i = 0; i < len; i++) {
+        if (this[i] !== arr[i]) {
             return false
         }
     }
@@ -493,7 +542,7 @@ An object that has a `concat` function that combines it with another object of t
 An object that has a `reduce` function that can transform that object into some other type.
 
 ```js
-let sum = (list) => list.reduce((acc, val) => acc + val, 0);
+const sum = (list) => list.reduce((acc, val) => acc + val, 0);
 sum([1, 2, 3]) // 6
 ```
 
@@ -503,7 +552,7 @@ TODO
 
 ## Type Signatures
 
-Often functions will include comments that indicate the types of their arguments and return types.
+Often functions in JavaScript will include comments that indicate the types of their arguments and return values.
 
 There's quite a bit of variance across the community but they often follow the following patterns:
 
@@ -511,25 +560,30 @@ There's quite a bit of variance across the community but they often follow the f
 // functionName :: firstArgType -> secondArgType -> returnType
 
 // add :: Number -> Number -> Number
-let add = (x) => (y) => x + y
+const add = (x) => (y) => x + y
 
 // increment :: Number -> Number
-let increment = (x) => x + 1
+const increment = (x) => x + 1
 ```
 
-If a function accepts another function as an argument it is wrapped in parenthesis.
+If a function accepts another function as an argument it is wrapped in parentheses.
 
 ```js
 // call :: (a -> b) -> a -> b
-let call = (f) => (x) => f(x)
+const call = (f) => (x) => f(x)
 ```
 
-The letters `a`, `b`, `c`, `d` are used to signify that the argument can be of any type. For this `map` it takes a function that transforms a value of some type `a` into another type `b`, an array of values of type `a`, and returns an array of values of type `b`.
+The letters `a`, `b`, `c`, `d` are used to signify that the argument can be of any type. The following version of `map` takes a function that transforms a value of some type `a` into another type `b`, an array of values of type `a`, and returns an array of values of type `b`.
 
 ```js
 // map :: (a -> b) -> [a] -> [b]
-let map = (f) => (list) => list.map(f)
+const map = (f) => (list) => list.map(f)
 ```
+
+### Further reading
+* [Ramda's type signatures](https://github.com/ramda/ramda/wiki/Type-Signatures)
+* [Mostly Adaquate Guide](https://drboolean.gitbooks.io/mostly-adequate-guide/content/ch7.html#whats-your-type)
+* [What is Hindley-Milner?](http://stackoverflow.com/a/399392/22425) on Stack Overflow
 
 ## Union type
 A union type is the combination of two types together into another one.
@@ -614,4 +668,4 @@ getNestedPrice({item: {price: 9.99}}); // Some(9.99)
 
 ---
 
-__P.S:__ Without the wonderful [contributions](https://github.com/hemanth/functional-programming-jargon/graphs/contributors) this repo would be meaningless!
+__P.S:__ This repo is successful due to the wonderful [contributions](https://github.com/hemanth/functional-programming-jargon/graphs/contributors)!
